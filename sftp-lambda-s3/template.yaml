@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda SFTP to S3
+
+Parameters:
+  DestinationBucketName:
+    Type: String
+
+Resources:
+  ## S3 bucket
+  DestinationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DestinationBucketName   
+
+  ## Lambda function
+  SFTPFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 2048
+      Layers:
+        - !Ref SFTPFunctionLayers
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref DestinationBucketName
+      Environment:
+        Variables:
+          DESTINATION_BUCKETNAME: !Ref DestinationBucketName
+
+  SFTPFunctionLayers:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: "paramiko"
+      Description: "paramiko sftp library"
+      LicenseInfo: "MIT"
+      ContentUri: layers/
+      CompatibleRuntimes: ["python2.7", "python3.6", "python3.7", "python3.8"]
+    Metadata:
+      BuildMethod: python3.8              # Required to have AWS SAM build this layer
+
+
+Outputs:
+  DestinationBucketName:
+    Value: !Ref DestinationBucketName
+    Description: S3 destination Bucket for object storage
+  FunctionArn:
+    Value: !Ref SFTPFunction
+    Description: SFTP Function function  Arn
