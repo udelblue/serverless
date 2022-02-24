@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Create a Lambda function that logs something to the console from a cron job in EventBridge
+Parameters: 
+  TriggerBucket: 
+    Default: 'test-ocr-poc-dev'
+    Description: "Bucketname that is the source of event"
+    Type: String
+  FolderPrefix: 
+    Default: 'uploads/*'
+    Description: "Folder that is the source of event"
+    Type: String
+Resources:
+  EventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 128
+            
+      Events:
+        EventBridgeEvent:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - aws.s3
+              detail-type:
+                - AWS API Call via CloudTrail
+              detail:
+                eventSource:
+                  - s3.amazonaws.com
+                eventName:
+                  - CopyObject
+                  - PutObject
+                  - CompleteMultipartUpload
+                  - RestoreObject
+                requestParameters:
+                  bucketName:
+                    - !Ref TriggerBucket
+                  key:
+                    - prefix: !Ref FolderPrefix
+
+Outputs:
+  SourceBucketName:
+    Value: !Ref TriggerBucket
+    Description: S3 Bucket for object storage
