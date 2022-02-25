@@ -7,7 +7,7 @@ Parameters:
     Description: "Bucketname that is the source of event"
     Type: String
   FolderPrefix: 
-    Default: 'uploads/*'
+    Default: 'uploads/'
     Description: "Folder that is the source of event"
     Type: String
 Resources:
