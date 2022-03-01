@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Create a Lambda function that logs something to the console from a eventrule in EventBridge
+Parameters: 
+  SourceBucket: 
+    Default: 'test-ocr-poc-dev'
+    Description: "Bucketname that is the source of event"
+    Type: String
+  SourcePrefix: 
+    Default: 'uploads/'
+    Description: "Folder that is the source of event"
+    Type: String
+  SinkBucket: 
+    Default: 'test-ocr-poc-dev'
+    Description: "Bucketname that is the sink"
+    Type: String
+  SinkPrefix: 
+    Default: 'processed/'
+    Description: "Folder name that is the sink"
+    Type: String
+Resources:
+  EventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      MemorySize: 512
+      Layers:
+        - !Ref TransformationFunctionLayers
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref SourceBucket
+        - S3CrudPolicy:
+            BucketName: !Ref SinkBucket
+      Environment:
+        Variables:
+          SINK_BUCKET: !Ref SinkBucket
+          SINK_PREFIX: !Ref SinkPrefix          
+            
+      Events:
+        EventBridgeEvent:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - aws.s3
+              detail-type:
+                - AWS API Call via CloudTrail
+              detail:
+                eventSource:
+                  - s3.amazonaws.com
+                eventName:
+                  - CopyObject
+                  - PutObject
+                  - CompleteMultipartUpload
+                  - RestoreObject
+                requestParameters:
+                  bucketName:
+                    - !Ref SourceBucket
+                  key:
+                    - prefix: !Ref SourcePrefix
+
+  TransformationFunctionLayers:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: "pandas"
+      Description: "panda library"
+      LicenseInfo: "MIT"
+      ContentUri: layers/
+      CompatibleRuntimes: ["python2.7", "python3.6", "python3.7", "python3.8"]
+    Metadata:
+      BuildMethod: python3.8    
+
+Outputs:
+  SourceBucketName:
+    Value: !Ref SourceBucket
+    Description: S3 Bucket for source objects storage
+  SourceFolderPrefix:
+    Value: !Ref SourcePrefix
+    Description: Source object prefix
+  SinkBucketName:
+    Value: !Ref SinkBucket
+    Description: S3 Bucket for sink objects storage
+  SinkFolderPrefix:
+    Value: !Ref SinkPrefix
+    Description: Sink object prefix
