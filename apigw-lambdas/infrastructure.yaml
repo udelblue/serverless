@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: ApiGatewayWithLambdas
+
+  LambdaOne:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: LambdaOne
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          def handler(event, context):
+          return {
+          "statusCode": 200,
+          "body": '{"message": "Hello from Lambda One!"}'
+          }
+
+      LambdaTwo:
+        Type: AWS::Lambda::Function
+        Properties:
+      FunctionName: LambdaTwo
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          def handler(event, context):
+          return {
+          "statusCode": 200,
+          "body": '{"message": "Hello from Lambda Two!"}'
+          }
+
+      LambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+        Principal:
+          Service: lambda.amazonaws.com
+        Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaExecutionPolicy
+          PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+
+      ApiGatewayResourceOne:
+        Type: AWS::ApiGateway::Resource
+        Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: testone
+      RestApiId: !Ref ApiGateway
+
+      ApiGatewayResourceTwo:
+        Type: AWS::ApiGateway::Resource
+        Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: testtwo
+      RestApiId: !Ref ApiGateway
+
+      ApiGatewayMethodOne:
+        Type: AWS::ApiGateway::Method
+        Properties:
+      HttpMethod: GET
+      ResourceId: !Ref ApiGatewayResourceOne
+      RestApiId: !Ref ApiGateway
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref AWS::Region
+        LambdaArn: !GetAtt LambdaOne.Arn
+
+      ApiGatewayMethodTwo:
+        Type: AWS::ApiGateway::Method
+        Type: AWS::ApiGateway::Method
+        Properties:
+      HttpMethod: GET
+      ResourceId: !Ref ApiGatewayResourceTwo
+      RestApiId: !Ref ApiGateway
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref AWS::Region
+        LambdaArn: !GetAtt LambdaTwo.Arn
+
+      PermissionForApiGatewayToInvokeLambdaOne:
+        Type: AWS::Lambda::Permission
+        Properties:
+      FunctionName: !Ref LambdaOne
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+      PermissionForApiGatewayToInvokeLambdaTwo:
+        Type: AWS::Lambda::Permission
+        Properties:
+      FunctionName: !Ref LambdaTwo
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
